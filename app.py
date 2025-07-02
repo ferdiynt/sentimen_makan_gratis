@@ -135,7 +135,7 @@ st.title("💬 Aplikasi Klasifikasi Sentimen")
 st.write("Pilih model dan masukkan teks untuk melakukan prediksi sentimen.")
 
 model_choice = st.selectbox("Pilih Model", ('Random Forest', 'SVM', 'KNN'))
-user_input = st.text_area("Masukkan teks untuk prediksi sentimen", "Programnya bagus, saya suka sekali.", height=150)
+user_input = st.text_area("Masukkan teks untuk prediksi sentimen", "program ini baik sekali", height=150)
 
 if st.button("Prediksi Sentimen", use_container_width=True):
     if user_input:
