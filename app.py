@@ -10,6 +10,7 @@ from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 from nltk.corpus import stopwords
 import torch
 from transformers import BertTokenizer, BertModel
+import gdown
 
 # --- Fungsi untuk download file dari Google Drive ---
 def download_file_from_google_drive(id, destination):
@@ -35,7 +36,7 @@ def download_file_from_google_drive(id, destination):
 # --- Fungsi Load Model (dengan cache agar tidak di-load berulang kali) ---
 @st.cache_resource
 def load_all_resources():
-    # Cek dan Unduh NLTK Stopwords Secara Manual
+    # Cek dan Unduh NLTK Stopwords
     try:
         nltk.data.find('corpora/stopwords')
     except LookupError:
@@ -65,16 +66,20 @@ def load_all_resources():
         "slang": "data/slang.txt"
     }
 
-    # Download file jika belum ada
-    if not os.path.exists(paths["rf"]): download_file_from_google_drive(file_ids["rf"], paths["rf"])
-    if not os.path.exists(paths["svm"]): download_file_from_google_drive(file_ids["svm"], paths["svm"])
-    if not os.path.exists(paths["knn"]): download_file_from_google_drive(file_ids["knn"], paths["knn"])
-    if not os.path.exists(os.path.join(paths["bert_dir"], "tokenizer")): 
-        download_file_from_google_drive(file_ids["bert_zip"], paths["bert_zip"])
-        with zipfile.ZipFile(paths["bert_zip"], 'r') as zip_ref:
-            zip_ref.extractall()
-        os.remove(paths["bert_zip"])
-    if not os.path.exists(paths["slang"]): download_file_from_google_drive(file_ids["slang"], paths["slang"])
+    # Download file jika belum ada menggunakan gdown
+    with st.spinner("Mempersiapkan model saat pertama kali dijalankan..."):
+        if not os.path.exists(paths["rf"]): gdown.download(id=file_ids["rf"], output=paths["rf"], quiet=True)
+        if not os.path.exists(paths["svm"]): gdown.download(id=file_ids["svm"], output=paths["svm"], quiet=True)
+        if not os.path.exists(paths["knn"]): gdown.download(id=file_ids["knn"], output=paths["knn"], quiet=True)
+        
+        # Proses download dan unzip model BERT
+        if not os.path.exists(os.path.join(paths["bert_dir"], "tokenizer")): 
+            gdown.download(id=file_ids["bert_zip"], output=paths["bert_zip"], quiet=True)
+            with zipfile.ZipFile(paths["bert_zip"], 'r') as zip_ref:
+                zip_ref.extractall()
+            os.remove(paths["bert_zip"])
+        
+        if not os.path.exists(paths["slang"]): gdown.download(id=file_ids["slang"], output=paths["slang"], quiet=True)
 
     # Load semua model dan resource
     with open(paths['rf'], 'rb') as file: rf_model = pickle.load(file)
@@ -98,7 +103,8 @@ def load_all_resources():
 
     return models, tokenizer, bert_model, normalisasi_dict, indo_stopwords, stemmer
 
-# --- Fungsi Preprocessing dan lainnya tetap sama ---
+
+# --- Fungsi Preprocessing ---
 def preprocess_text(text, normalisasi_dict, indo_stopwords, stemmer):
     text = text.lower()
     text = re.sub(r'http\S+|www.\S+', '', text)
