@@ -16,47 +16,54 @@ import time
 # --- Page Configuration ---
 st.set_page_config(
     page_title="Analisis Sentimen",
-    page_icon="🤖",
+    page_icon="💡",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# --- Custom CSS for modern UI ---
+# --- Custom CSS for modern dark UI ---
 st.markdown("""
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+
     /* General Styling */
     .stApp {
-        background-color: #f0f2f6;
+        background-color: #0e1117;
+        color: #fafafa;
         font-family: 'Inter', sans-serif;
     }
 
     /* Main Title */
     h1 {
-        color: #1e3a8a; /* Dark Blue */
+        color: #fafafa;
         text-align: center;
         font-weight: 800;
     }
+    
+    /* Subheader in columns */
+    .st-emotion-cache-16txtl3 {
+        color: #fafafa;
+    }
 
-    /* Subheader */
-    .st-emotion-cache-10trblm {
-        color: #4b5563; /* Gray */
-        text-align: center;
+    /* Subtitle below main title */
+    p {
+        color: #a0a0a0;
     }
 
     /* Buttons */
     .stButton > button {
         border-radius: 20px;
-        border: 2px solid #1e3a8a;
-        background-color: #1e3a8a;
+        border: 2px solid #3b82f6;
+        background-color: #3b82f6;
         color: white;
         font-weight: 600;
         transition: all 0.3s ease-in-out;
         padding: 10px 25px;
     }
     .stButton > button:hover {
-        background-color: white;
-        color: #1e3a8a;
-        border-color: #1e3a8a;
+        background-color: transparent;
+        color: #3b82f6;
+        border-color: #3b82f6;
     }
     .stButton > button:active {
         transform: scale(0.98);
@@ -65,33 +72,39 @@ st.markdown("""
     /* Text Area */
     .stTextArea textarea {
         border-radius: 15px;
-        border: 2px solid #d1d5db;
-        background-color: #ffffff;
+        border: 2px solid #4b5563;
+        background-color: #1f2937;
+        color: #fafafa;
         min-height: 200px;
         font-size: 16px;
     }
     .stTextArea textarea:focus {
-        border-color: #1e3a8a;
-        box-shadow: 0 0 0 2px #bfdbfe;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 2px #1e3a8a;
     }
     
     /* Selectbox */
     .stSelectbox div[data-baseweb="select"] > div {
         border-radius: 15px;
-        border: 2px solid #d1d5db;
-        background-color: #ffffff;
+        border: 2px solid #4b5563;
+        background-color: #1f2937;
+        color: #fafafa;
     }
     .stSelectbox div[data-baseweb="select"] > div:focus-within {
-        border-color: #1e3a8a;
+        border-color: #3b82f6;
     }
+    .stSelectbox div[data-baseweb="select"] span {
+       color: #fafafa;
+    }
+
 
     /* Result Cards */
     .result-card {
-        background-color: white;
+        background-color: #1f2937;
         border-radius: 20px;
         padding: 25px;
         margin-top: 20px;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
         border-left: 10px solid;
     }
     .result-card-positif {
@@ -115,6 +128,16 @@ st.markdown("""
     /* Progress Bar */
     .stProgress > div > div > div > div {
         background-color: #22c55e;
+    }
+    
+    /* Warning/Info boxes */
+    .st-emotion-cache-zt5igj {
+        background-color: rgba(239, 68, 68, 0.1);
+        border-radius: 15px;
+    }
+    .st-emotion-cache-1wivap2 {
+         background-color: rgba(59, 130, 246, 0.1);
+         border-radius: 15px;
     }
 
 </style>
@@ -241,8 +264,8 @@ try:
     models, tokenizer, bert_model, normalisasi_dict, indo_stopwords, stemmer = load_all_resources()
 
     # --- Antarmuka Streamlit ---
-    st.title("🤖 Aplikasi Analisis Sentimen Teks")
-    st.markdown("<p style='text-align: center; color: #4b5563;'>Analisis sentimen pada ulasan atau teks berbahasa Indonesia menggunakan model Machine Learning dan BERT.</p>", unsafe_allow_html=True)
+    st.title("💡 Aplikasi Analisis Sentimen Teks")
+    st.markdown("<p style='text-align: center; color: #a0a0a0;'>Analisis sentimen pada ulasan atau teks berbahasa Indonesia menggunakan model Machine Learning dan BERT.</p>", unsafe_allow_html=True)
     st.markdown("---")
 
     col1, col2 = st.columns([0.6, 0.4], gap="large")
@@ -256,6 +279,11 @@ try:
 
     with col2:
         st.subheader("Hasil Analisis")
+        if 'sentiment' not in st.session_state:
+            st.session_state.sentiment = None
+            st.session_state.model_choice = None
+            st.session_state.prediction_proba = None
+
         if predict_button:
             if user_input:
                 with st.spinner(f'Menganalisis dengan model {model_choice}...'):
@@ -265,44 +293,56 @@ try:
                     
                     if not cleaned_text.strip():
                         st.warning("Teks tidak mengandung kata yang dapat diproses setelah preprocessing. Coba masukkan teks lain.")
+                        st.session_state.sentiment = None
                     else:
                         bert_features = get_bert_embedding(cleaned_text, tokenizer, bert_model)
                         prediction = selected_model.predict(bert_features)
-                        sentiment = "Positif" if prediction[0] == 1 else "Negatif"
-                        
-                        # Display result card
-                        card_class = "result-card-positif" if sentiment == "Positif" else "result-card-negatif"
-                        sentiment_class = "positif" if sentiment == "Positif" else "negatif"
-                        icon = "😊" if sentiment == "Positif" else "😠"
-
-                        st.markdown(f"""
-                        <div class="result-card {card_class}">
-                            <div class="result-sentiment {sentiment_class}">{icon} Prediksi: {sentiment}</div>
-                            <p style="color: #4b5563;">Model yang digunakan: <b>{model_choice}</b></p>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                        # Display probability
+                        st.session_state.sentiment = "Positif" if prediction[0] == 1 else "Negatif"
+                        st.session_state.model_choice = model_choice
                         if hasattr(selected_model, 'predict_proba'):
-                            prediction_proba = selected_model.predict_proba(bert_features)
-                            
-                            st.write("Tingkat Keyakinan:")
-                            
-                            # Custom progress bar with labels
-                            prob_pos = prediction_proba[0][1]
-                            prob_neg = prediction_proba[0][0]
-                            
-                            st.write(f"Positif: **{prob_pos:.2%}**")
-                            st.progress(prob_pos)
-                            
-                            st.write(f"Negatif: **{prob_neg:.2%}**")
-                            st.progress(prob_neg)
+                            st.session_state.prediction_proba = selected_model.predict_proba(bert_features)
+                        else:
+                            st.session_state.prediction_proba = None
             else:
                 st.warning("Harap masukkan teks untuk dianalisis.")
+                st.session_state.sentiment = None
+
+        if st.session_state.sentiment:
+            sentiment = st.session_state.sentiment
+            model_choice = st.session_state.model_choice
+            prediction_proba = st.session_state.prediction_proba
+
+            # Display result card
+            card_class = "result-card-positif" if sentiment == "Positif" else "result-card-negatif"
+            sentiment_class = "positif" if sentiment == "Positif" else "negatif"
+            icon = "😊" if sentiment == "Positif" else "😠"
+
+            st.markdown(f"""
+            <div class="result-card {card_class}">
+                <div class="result-sentiment {sentiment_class}">{icon} Prediksi: {sentiment}</div>
+                <p style="color: #a0a0a0;">Model yang digunakan: <b>{model_choice}</b></p>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Display probability
+            if prediction_proba is not None:
+                st.write("Tingkat Keyakinan:")
+                prob_pos = prediction_proba[0][1]
+                prob_neg = prediction_proba[0][0]
+                
+                st.write(f"Positif: **{prob_pos:.2%}**")
+                st.progress(prob_pos)
+                
+                st.write(f"Negatif: **{prob_neg:.2%}**")
+                # Custom progress bar for negative
+                st.markdown(f"""
+                <style>
+                    .stProgress > div > div > div > div {{ background-color: {'#22c55e' if sentiment == 'Positif' else '#ef4444'}; }}
+                </style>""", unsafe_allow_html=True)
+                st.progress(prob_neg)
         else:
             st.info("Pilih model dan masukkan teks, lalu klik tombol 'Analisis Sentimen' untuk melihat hasilnya di sini.")
 
 except Exception as e:
     st.error(f"Terjadi kesalahan saat memuat atau menjalankan aplikasi: {e}")
     st.info("Coba muat ulang halaman. Jika masalah berlanjut, pastikan file model dapat diakses.")
-
